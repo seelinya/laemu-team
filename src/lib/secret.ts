@@ -25,3 +25,12 @@ export function getAuthSecret(): string {
 export function authSecretBytes(): Uint8Array {
   return new TextEncoder().encode(getAuthSecret())
 }
+
+// ─── Offener Login (Auth-Bypass) ──────────────────────────────────────────────
+// ACHTUNG: Ist dies aktiv, wird JEDE E-Mail/Passwort-Kombination akzeptiert —
+// die Authentifizierung ist damit praktisch deaktiviert. Nur für interne/Test-
+// Zwecke gedacht. Zum Abschalten: AUTH_ALLOW_ANY="false" in der Umgebung setzen.
+export function authBypassEnabled(): boolean {
+  return process.env.AUTH_ALLOW_ANY !== 'false'
+}
+
