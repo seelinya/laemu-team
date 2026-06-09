@@ -3,6 +3,7 @@
 import { useFormState } from 'react-dom'
 import { useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import Link from 'next/link'
 import { loginAction } from './actions'
 import { SubmitButton } from '@/components/ui/SubmitButton'
 
@@ -52,6 +53,18 @@ function LoginForm() {
               Anmelden →
             </SubmitButton>
           </form>
+
+          <div className="mt-6 pt-6 border-t border-border text-center">
+            <p className="font-sans text-sm text-text-secondary">
+              Noch kein Login?{' '}
+              <Link
+                href="/register"
+                className="text-dark font-semibold hover:text-accent-gold transition-colors"
+              >
+                Team-Konto erstellen →
+              </Link>
+            </p>
+          </div>
         </div>
 
         <p className="text-center font-sans text-xs text-text-secondary mt-6">
