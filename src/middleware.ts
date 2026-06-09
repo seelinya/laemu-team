@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { jwtVerify } from 'jose'
+import { authSecretBytes } from '@/lib/secret'
 
 const SESSION_COOKIE = 'laemu_team_session'
 
@@ -7,12 +8,11 @@ const SESSION_COOKIE = 'laemu_team_session'
 // Läuft auf der Edge, daher eigenständige (DB-freie) Token-Prüfung mit jose.
 export async function middleware(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE)?.value
-  const secret = process.env.AUTH_SECRET
 
   let valid = false
-  if (token && secret) {
+  if (token) {
     try {
-      await jwtVerify(token, new TextEncoder().encode(secret))
+      await jwtVerify(token, authSecretBytes())
       valid = true
     } catch {
       valid = false
