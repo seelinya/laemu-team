@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  background-color: #f0f0f0;
+  color: #0a0a0a;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Konsistente Formular-Elemente im LAEMU-Stil */
+@layer components {
+  .field-label {
+    @apply block font-sans text-xs font-medium text-text-secondary uppercase tracking-widest mb-2;
+  }
+  .field-input {
+    @apply w-full border border-border px-3 py-2.5 font-sans text-sm text-dark bg-white focus:outline-none focus:border-dark transition-colors;
+  }
+  .field-textarea {
+    @apply w-full border border-border px-3 py-2.5 font-sans text-sm text-dark bg-white focus:outline-none focus:border-dark transition-colors leading-relaxed;
+  }
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 bg-dark text-white font-sans text-sm font-semibold tracking-wide px-5 py-2.5 hover:bg-accent-gold transition-colors disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 border border-border bg-white text-dark font-sans text-sm font-medium px-4 py-2.5 hover:border-dark transition-colors;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 border border-red-300 bg-white text-red-600 font-sans text-sm font-medium px-4 py-2.5 hover:bg-red-50 hover:border-red-500 transition-colors;
+  }
+  .card {
+    @apply bg-surface border border-border;
+  }
+  .pill {
+    @apply inline-flex items-center gap-1 font-sans text-[10px] px-2 py-0.5 border;
+  }
+}

@@ -1,0 +1,339 @@
+// LAEMU Team-Backend — Datenmodell
+// Bildet die Inhaltsstruktur der LAEMU-Mitglieder-App ab:
+//   Instrumente → Lehrgänge/Kurse → Module → Lektionen
+//   Lernvideo-Datenbank (Stücke) mit Tags, Stimmen, Noten/PDFs, Mixer u.v.m.
+//
+// Datenbank: SQLite (Standard, kein Setup). Für Postgres einfach den provider
+// unten auf "postgresql" ändern — das Schema ist kompatibel gehalten
+// (keine Enums/Json-Felder, Arrays werden als JSON-String gespeichert).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Team / Auth ──────────────────────────────────────────────────────────────
+
+model TeamUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  // 'admin' | 'editor' | 'teacher'
+  role         String   @default("editor")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Stammdaten ─────────────────────────────────────────────────────────────
+
+model Instrument {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  label       String
+  emoji       String   @default("🎵")
+  description String   @default("")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  courses Course[]
+  pieces  Piece[]
+}
+
+model Teacher {
+  id         String   @id @default(cuid())
+  name       String
+  handle     String   @default("")
+  instrument String   @default("")
+  bio        String   @default("")
+  imageUrl   String   @default("")
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  pieces Piece[] @relation("PieceTeachers")
+}
+
+// Verwaltete Tag-Vokabulare für die Lernvideo-Datenbank.
+// category: 'stil' | 'genre' | 'taktart' | 'auto'
+model Tag {
+  id        String   @id @default(cuid())
+  category  String
+  value     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([category, value])
+}
+
+// ─── Lehrgänge / Kurse / Module / Lektionen ─────────────────────────────────
+
+model Course {
+  id            String   @id @default(cuid())
+  slug          String
+  title         String
+  description   String   @default("")
+  // 'starter' | 'pro' | 'allgemein' — bestimmt den Lehrgang-Strang
+  track         String   @default("starter")
+  // 'Starter' | 'Pro' | 'Allgemein' (Anzeige-Level)
+  level         String   @default("Starter")
+  emoji         String   @default("🎵")
+  imageUrl      String   @default("")
+  durationLabel String   @default("")
+  teacherName   String   @default("")
+  sortOrder     Int      @default(0)
+  published     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  instrumentId String?
+  instrument   Instrument? @relation(fields: [instrumentId], references: [id], onDelete: SetNull)
+
+  modules Module[]
+
+  @@index([instrumentId])
+}
+
+model Module {
+  id        String   @id @default(cuid())
+  title     String
+  // 'completed' | 'in-progress' | 'not-started' | 'locked' (Standardstatus)
+  status    String   @default("not-started")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  lessons Lesson[]
+
+  @@index([courseId])
+}
+
+model Lesson {
+  id            String   @id @default(cuid())
+  title         String
+  durationLabel String   @default("")
+  // 'video' | 'text' | 'video+text'
+  type          String   @default("video")
+  videoUrl      String   @default("")
+  textContent   String   @default("")
+  pdfUrl        String   @default("")
+  sortOrder     Int      @default(0)
+  published     Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId])
+}
+
+// ─── Lernvideo-Datenbank (Stücke) ────────────────────────────────────────────
+
+model Piece {
+  id           String  @id @default(cuid())
+  slug         String  @default("")
+  title        String
+  artist       String  @default("")
+  composer     String  @default("")
+  year         Int?
+  formation    String  @default("")
+
+  // 'volkstuemlich' | 'bekannte_melodie'
+  artDesStueckes String @default("volkstuemlich")
+  taktart        String @default("")
+  // 'free' | 'starter' | 'pro'
+  plan           String @default("free")
+  difficultyNum  Int    @default(1)
+  level          Int    @default(1)
+  stufen         Int    @default(1)
+  meter          String @default("")
+
+  intro      String @default("")
+  lyrics     String @default("")
+  spotifyUrl String @default("")
+
+  imageUrl       String @default("")
+  masterVideoUrl String @default("")
+  hasMixer       Boolean @default(false)
+
+  // Noten-Verfügbarkeit (Schnellflags für Filter)
+  hasViolin Boolean @default(false)
+  hasGriff  Boolean @default(false)
+
+  price     Int     @default(0)
+  published Boolean @default(false)
+
+  // Tag-Listen als JSON-String (SQLite-kompatibel)
+  styleTags   String @default("[]")
+  melodieTags String @default("[]")
+  autoTags    String @default("[]")
+  formations  String @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  instrumentId   String?
+  instrument     Instrument? @relation(fields: [instrumentId], references: [id], onDelete: SetNull)
+  instrumentName String      @default("")
+
+  teachers           Teacher[]           @relation("PieceTeachers")
+  voiceSections      VoiceSection[]
+  sheets             Sheet[]
+  mixerMusicians     MixerMusician[]
+  originalRecordings OriginalRecording[]
+  tontraeger         Tontraeger[]
+
+  @@index([instrumentId])
+}
+
+// Stimmen-Abschnitt eines Stücks (1. Stimme Handorgel, Bassbegleitung, …)
+model VoiceSection {
+  id            String  @id @default(cuid())
+  label         String
+  instrument    String  @default("")
+  color         String  @default("#C4973A")
+  hasLaemuPlayer Boolean @default(false)
+  sortOrder     Int     @default(0)
+
+  pieceId String
+  piece   Piece  @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  videos       VoiceVideo[]
+  audioSamples AudioSample[]
+  sheets       Sheet[]
+
+  @@index([pieceId])
+}
+
+model VoiceVideo {
+  id            String @id @default(cuid())
+  label         String
+  durationLabel String @default("")
+  videoUrl      String @default("")
+  sortOrder     Int    @default(0)
+
+  sectionId String
+  section   VoiceSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+}
+
+model AudioSample {
+  id            String @id @default(cuid())
+  label         String
+  durationLabel String @default("")
+  // 'audio' | 'youtube'
+  type          String @default("audio")
+  url           String @default("")
+  sortOrder     Int    @default(0)
+
+  sectionId String
+  section   VoiceSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+}
+
+// Noten/PDF — entweder am Stück (allgemein) oder an einer Stimme.
+model Sheet {
+  id        String @id @default(cuid())
+  label     String
+  sheetKey  String @default("")
+  price     Int    @default(0)
+  pdfUrl    String @default("")
+  sortOrder Int    @default(0)
+
+  pieceId String?
+  piece   Piece?  @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  sectionId String?
+  section   VoiceSection? @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([pieceId])
+  @@index([sectionId])
+}
+
+model MixerMusician {
+  id         String  @id @default(cuid())
+  name       String
+  voice      String  @default("")
+  instrument String  @default("")
+  singing    String  @default("")
+  volume     Int     @default(80)
+  muted      Boolean @default(false)
+  color      String  @default("#C4973A")
+  sortOrder  Int     @default(0)
+
+  pieceId String
+  piece   Piece  @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@index([pieceId])
+}
+
+model OriginalRecording {
+  id        String @id @default(cuid())
+  label     String
+  // 'audio' | 'youtube'
+  type      String @default("audio")
+  artist    String @default("")
+  url       String @default("")
+  sortOrder Int    @default(0)
+
+  pieceId String
+  piece   Piece  @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@index([pieceId])
+}
+
+// Tonträger / Alben, auf denen das Stück erschienen ist.
+model Tontraeger {
+  id        String @id @default(cuid())
+  label     String
+  year      Int?
+  artist    String @default("")
+  url       String @default("")
+  sortOrder Int    @default(0)
+
+  pieceId String
+  piece   Piece  @relation(fields: [pieceId], references: [id], onDelete: Cascade)
+
+  @@index([pieceId])
+}
+
+// ─── Stückwünsche (Community) ────────────────────────────────────────────────
+
+model Wish {
+  id        String   @id @default(cuid())
+  title     String
+  composer  String   @default("")
+  // votes: { "Handorgel (1. Stimme)": 14, ... } als JSON
+  votes     String   @default("{}")
+  // available: ["Schwyzerörgeli (1. Stimme)"] als JSON
+  available String   @default("[]")
+  status    String   @default("offen") // 'offen' | 'in_arbeit' | 'erledigt'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Medienbibliothek (Uploads) ──────────────────────────────────────────────
+
+model MediaAsset {
+  id           String   @id @default(cuid())
+  filename     String // gespeicherter Dateiname auf der Platte
+  originalName String
+  url          String // öffentliche URL (/uploads/...)
+  mimeType     String   @default("")
+  // 'image' | 'video' | 'pdf' | 'audio' | 'other'
+  kind         String   @default("other")
+  size         Int      @default(0)
+  createdAt    DateTime @default(now())
+}
