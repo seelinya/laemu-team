@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { SignJWT, jwtVerify } from 'jose'
 import bcrypt from 'bcryptjs'
 import { db } from './db'
-import { authSecretBytes } from './secret'
+import { authSecretBytes, authBypassEnabled } from './secret'
 
 export const SESSION_COOKIE = 'laemu_team_session'
 const SESSION_DAYS = 7
@@ -82,11 +82,30 @@ export async function login(email: string, password: string): Promise<{ ok: bool
     }
   }
 
-  const user = await db.teamUser.findUnique({ where: { email: email.toLowerCase().trim() } })
-  if (!user || !user.active) return { ok: false, error: 'Unbekannte E-Mail oder Konto deaktiviert.' }
+  const normalizedEmail = email.toLowerCase().trim()
+  const bypass = authBypassEnabled()
 
-  const valid = await verifyPassword(password, user.passwordHash)
-  if (!valid) return { ok: false, error: 'Falsches Passwort.' }
+  let user = await db.teamUser.findUnique({ where: { email: normalizedEmail } })
+
+  if (bypass) {
+    // OFFENER LOGIN: jede E-Mail/Passwort-Kombination wird akzeptiert.
+    if (!normalizedEmail) return { ok: false, error: 'Bitte eine E-Mail eingeben.' }
+    if (!user) {
+      // Konto on-the-fly anlegen, damit die Session einen echten Nutzer hat.
+      user = await db.teamUser.create({
+        data: {
+          email: normalizedEmail,
+          name: normalizedEmail.split('@')[0] || 'Team-Mitglied',
+          role: 'admin',
+          passwordHash: await hashPassword(password || 'open-login'),
+        },
+      })
+    }
+  } else {
+    if (!user || !user.active) return { ok: false, error: 'Unbekannte E-Mail oder Konto deaktiviert.' }
+    const valid = await verifyPassword(password, user.passwordHash)
+    if (!valid) return { ok: false, error: 'Falsches Passwort.' }
+  }
 
   const token = await createSessionToken({
     sub: user.id,
