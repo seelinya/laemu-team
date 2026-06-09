@@ -76,6 +76,54 @@ export async function login(email: string, password: string): Promise<{ ok: bool
   return { ok: true }
 }
 
+// Registriert ein neues Team-Mitglied (Selbst-Registrierung).
+// Sicherheit:
+//  - Existiert noch kein Konto, wird der erste Account als Admin angelegt
+//    (Bootstrap, ohne Code).
+//  - Andernfalls ist ein gültiger TEAM_REGISTRATION_CODE nötig; neue Konten
+//    erhalten die Rolle 'editor'. Ohne gesetzten Code ist die Registrierung zu.
+export async function register(input: {
+  name: string
+  email: string
+  password: string
+  code: string
+}): Promise<{ ok: boolean; error?: string }> {
+  const name = input.name.trim()
+  const email = input.email.toLowerCase().trim()
+  const password = input.password
+
+  if (!name || !email) return { ok: false, error: 'Bitte Name und E-Mail angeben.' }
+  if (password.length < 6) return { ok: false, error: 'Das Passwort muss mindestens 6 Zeichen haben.' }
+
+  const userCount = await db.teamUser.count()
+  const isBootstrap = userCount === 0
+
+  if (!isBootstrap) {
+    const expected = process.env.TEAM_REGISTRATION_CODE
+    if (!expected) {
+      return { ok: false, error: 'Die Selbst-Registrierung ist deaktiviert. Bitte einen Admin um einen Zugang bitten.' }
+    }
+    if (input.code.trim() !== expected) {
+      return { ok: false, error: 'Ungültiger Team-Code.' }
+    }
+  }
+
+  const existing = await db.teamUser.findUnique({ where: { email } })
+  if (existing) return { ok: false, error: 'Für diese E-Mail existiert bereits ein Konto.' }
+
+  await db.teamUser.create({
+    data: {
+      name,
+      email,
+      role: isBootstrap ? 'admin' : 'editor',
+      passwordHash: await hashPassword(password),
+    },
+  })
+
+  // Direkt einloggen (setzt das Session-Cookie).
+  return login(email, password)
+}
+
 export async function logout() {
   cookies().delete(SESSION_COOKIE)
 }
