@@ -1,10 +1,21 @@
 import { PrismaClient } from '@prisma/client'
+import os from 'os'
+import path from 'path'
 
-// Fallback für DATABASE_URL: Ohne .env würde Prisma sonst beim Start abstürzen.
-// Standard ist eine lokale SQLite-Datei. Für Produktion (z.B. Postgres) einfach
-// DATABASE_URL in der Umgebung setzen.
+// Fallback für DATABASE_URL: Ohne explizite Konfiguration würde Prisma sonst
+// beim Start abstürzen. Für einen Prototyp legen wir die SQLite-Datei an einen
+// garantiert beschreibbaren Ort — sonst scheitert das Anlegen auf Hostings mit
+// schreibgeschütztem Projektverzeichnis (z.B. Vercel/Lambda) und es kommt zu
+// Fehlermeldungen beim Öffnen.
 if (!process.env.DATABASE_URL) {
-  process.env.DATABASE_URL = 'file:./dev.db'
+  const readOnlyHost =
+    process.env.VERCEL ||
+    process.env.AWS_REGION ||
+    process.env.AWS_LAMBDA_FUNCTION_NAME ||
+    process.env.NETLIFY ||
+    process.env.NODE_ENV === 'production'
+  const dir = readOnlyHost ? os.tmpdir() : process.cwd()
+  process.env.DATABASE_URL = `file:${path.join(dir, 'laemu-team.db')}`
 }
 
 // Prisma-Client als Singleton — verhindert zu viele Verbindungen im Dev-Modus
@@ -14,6 +25,7 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
+    datasources: { db: { url: process.env.DATABASE_URL } },
     log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
   })
 
