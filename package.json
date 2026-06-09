@@ -4,6 +4,7 @@
   "private": true,
   "description": "LAEMU Team-Backend — CMS zur Verwaltung von Lehrgängen, Kursen, Lektionen, Lernvideos, Tags, Noten/PDFs und Medien.",
   "scripts": {
+    "predev": "prisma generate && prisma db push --skip-generate",
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
