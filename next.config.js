@@ -6,6 +6,7 @@ const nextConfig = {
   },
   // Uploads can be large; allow generous server action body size.
   experimental: {
+    instrumentationHook: true,
     serverActions: {
       bodySizeLimit: '50mb',
     },

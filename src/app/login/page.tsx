@@ -1,10 +1,14 @@
 import { Suspense } from 'react'
-import { authBypassEnabled } from '@/lib/secret'
+import { redirect } from 'next/navigation'
+import { authBypassEnabled, authDisabled } from '@/lib/secret'
 import { LoginForm } from './LoginForm'
 
 export const dynamic = 'force-dynamic'
 
 export default function LoginPage() {
+  // Login deaktiviert → keine Anmeldung nötig, direkt zu den Inhalten.
+  if (authDisabled()) redirect('/admin')
+
   const bypass = authBypassEnabled()
 
   return (

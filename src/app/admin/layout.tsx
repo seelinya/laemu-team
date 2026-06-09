@@ -1,9 +1,12 @@
 import { requireSession } from '@/lib/auth'
+import { ensureDbReady } from '@/lib/ensureDb'
 import { Sidebar } from '@/components/admin/Sidebar'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
+  // Stellt sicher, dass die Datenbank eingerichtet & befüllt ist (einmalig).
+  await ensureDbReady()
   const session = await requireSession()
 
   return (

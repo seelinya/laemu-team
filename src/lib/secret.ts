@@ -34,3 +34,11 @@ export function authBypassEnabled(): boolean {
   return process.env.AUTH_ALLOW_ANY !== 'false'
 }
 
+// ─── Login komplett deaktiviert ───────────────────────────────────────────────
+// ACHTUNG: Ist dies aktiv (Standard), ist KEINE Anmeldung nötig — jede Person
+// mit der URL hat vollen Admin-Zugriff. Nur für interne/Test-Zwecke.
+// Zum echten Schutz (Login wieder aktiv): AUTH_DISABLED="false" in der Umgebung.
+export function authDisabled(): boolean {
+  return process.env.AUTH_DISABLED !== 'false'
+}
+
