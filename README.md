@@ -42,7 +42,23 @@ npm run dev
 
 Danach erreichbar unter <http://localhost:3000> — Weiterleitung zum Login.
 
-**Standard-Login** (aus `.env`, beim Seed angelegt):
+### Anmeldung / Zugang
+
+Aktuell ist der **Login deaktiviert** (`AUTH_DISABLED="true"`, Standard): Es ist
+**keine Anmeldung** nötig, `/` leitet direkt zur Inhaltsverwaltung `/admin` weiter.
+Die Datenbank wird beim ersten Start **automatisch eingerichtet und befüllt** —
+kein separates `npm run setup` erforderlich.
+
+> ⚠️ In diesem Zustand hat jede Person mit der URL vollen Admin-Zugriff. Vor einem
+> öffentlichen Deployment unbedingt absichern.
+
+**Login wieder aktivieren** — in der Umgebung setzen:
+
+```env
+AUTH_DISABLED="false"
+```
+
+Dann gilt die normale Anmeldung. **Standard-Login** (beim Seed angelegt):
 
 - E-Mail: `team@laemu.ch`
 - Passwort: `laemu-team-2026`

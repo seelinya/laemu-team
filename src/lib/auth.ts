@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { SignJWT, jwtVerify } from 'jose'
 import bcrypt from 'bcryptjs'
 import { db } from './db'
-import { authSecretBytes, authBypassEnabled } from './secret'
+import { authSecretBytes, authBypassEnabled, authDisabled } from './secret'
 
 export const SESSION_COOKIE = 'laemu_team_session'
 const SESSION_DAYS = 7
@@ -177,8 +177,19 @@ export async function logout() {
   cookies().delete(SESSION_COOKIE)
 }
 
+// Synthetische Session, wenn die Authentifizierung deaktiviert ist (kein Login).
+const OPEN_SESSION: SessionPayload = {
+  sub: 'open-access',
+  email: DEFAULT_ADMIN.email,
+  name: DEFAULT_ADMIN.name,
+  role: 'admin',
+}
+
 // Liest die aktuelle Session (oder null). Für Server Components / Actions.
+// Ist der Login deaktiviert (AUTH_DISABLED ≠ "false"), wird immer eine
+// Admin-Session zurückgegeben — es ist dann keine Anmeldung nötig.
 export async function getSession(): Promise<SessionPayload | null> {
+  if (authDisabled()) return OPEN_SESSION
   const token = cookies().get(SESSION_COOKIE)?.value
   if (!token) return null
   return verifySessionToken(token)
@@ -186,6 +197,7 @@ export async function getSession(): Promise<SessionPayload | null> {
 
 // Erzwingt eine gültige Session, sonst Redirect zum Login.
 export async function requireSession(): Promise<SessionPayload> {
+  if (authDisabled()) return OPEN_SESSION
   const session = await getSession()
   if (!session) redirect('/login')
   return session
