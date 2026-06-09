@@ -89,6 +89,22 @@ eintragen.
 > Für den Produktivbetrieb empfiehlt sich ein Objektspeicher (S3/R2) — die
 > Upload-Route `src/app/api/upload/route.ts` ist dafür der einzige Anpassungspunkt.
 
+## Automatisches DB-Setup & Schema-SQL
+
+Die App richtet die Datenbank beim ersten Start selbst ein: `src/lib/ensureDb.ts`
+legt die Tabellen aus dem eingebetteten SQL (`src/lib/schemaSql.ts`) an und
+befüllt eine leere DB. Dadurch ist **kein** `.env` und **kein** manuelles Setup
+nötig — die Inhalte sind sofort sichtbar.
+
+Nach Schema-Änderungen (`prisma/schema.prisma`) das eingebettete SQL neu erzeugen:
+
+```bash
+npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script \
+  | sed -E 's/CREATE TABLE "/CREATE TABLE IF NOT EXISTS "/; s/CREATE UNIQUE INDEX "/CREATE UNIQUE INDEX IF NOT EXISTS "/; s/CREATE INDEX "/CREATE INDEX IF NOT EXISTS "/' \
+  > prisma/schema.sql
+# danach den Inhalt von prisma/schema.sql in src/lib/schemaSql.ts (SCHEMA_SQL) übernehmen
+```
+
 ## Auf PostgreSQL umstellen
 
 1. In `prisma/schema.prisma`: `provider = "postgresql"`
