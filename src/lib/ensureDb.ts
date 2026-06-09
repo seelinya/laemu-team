@@ -1,14 +1,13 @@
 import 'server-only'
-import { execSync } from 'child_process'
 import { db } from './db'
 import { seedDatabase } from './seedData'
+import { SCHEMA_SQL } from './schemaSql'
 
 // Stellt zur Laufzeit sicher, dass die Datenbank einsatzbereit ist:
-//  1. Fehlen die Tabellen, wird das Schema angelegt (`prisma db push`).
-//  2. Ist die DB leer, wird sie mit den Demo-Inhalten befüllt.
-// Wird einmal pro Prozess ausgeführt (memoisiert), damit Folgeaufrufe günstig sind.
-//
-// So sind die Inhalte sofort sichtbar — auch ohne vorheriges `npm run setup`.
+//  1. Tabellen anlegen (aus eingebettetem Schema-SQL — ohne Prisma-CLI/Netzwerk).
+//  2. Ist die DB leer, mit den Demo-Inhalten befüllen.
+// Einmal pro Prozess (memoisiert). So sind die Inhalte sofort sichtbar — ohne
+// vorheriges `npm run setup` und unabhängig von der Umgebung.
 
 let readyPromise: Promise<void> | null = null
 
@@ -17,36 +16,46 @@ export function ensureDbReady(): Promise<void> {
   return readyPromise
 }
 
-async function init(): Promise<void> {
-  let tablesExist = true
-  try {
-    await db.teamUser.count()
-  } catch {
-    tablesExist = false
-  }
+async function createSchema(): Promise<void> {
+  // SQL in einzelne Statements zerlegen, Kommentarzeilen (-- …) entfernen
+  // und nacheinander ausführen.
+  const statements = SCHEMA_SQL.split(';')
+    .map((chunk) =>
+      chunk
+        .split('\n')
+        .filter((line) => !line.trim().startsWith('--'))
+        .join('\n')
+        .trim(),
+    )
+    .filter((s) => s.length > 0)
 
-  if (!tablesExist) {
+  for (const stmt of statements) {
     try {
-      // Schema in die DB schreiben (legt bei SQLite auch die Datei an).
-      execSync('npx prisma db push --skip-generate --accept-data-loss', {
-        cwd: process.cwd(),
-        stdio: 'ignore',
-      })
+      await db.$executeRawUnsafe(stmt)
     } catch (e) {
-      console.error('[LAEMU] Automatisches Einrichten der DB fehlgeschlagen:', e)
-      // Trotzdem weiterversuchen — evtl. existieren die Tabellen doch.
+      // "already exists" o.ä. ignorieren (Statements sind idempotent gedacht).
+      const msg = e instanceof Error ? e.message : String(e)
+      if (!/already exists/i.test(msg)) {
+        console.error('[LAEMU] Schema-Statement fehlgeschlagen:', msg)
+      }
     }
   }
+}
 
+async function init(): Promise<void> {
   try {
+    // Tabellen anlegen, falls noch nicht vorhanden (idempotent).
+    await createSchema()
+
+    // Befüllen, falls leer.
     const count = await db.teamUser.count()
     if (count === 0) {
       await seedDatabase(db)
       console.log('[LAEMU] Datenbank automatisch eingerichtet & befüllt.')
     }
   } catch (e) {
-    console.error('[LAEMU] Seeding zur Laufzeit fehlgeschlagen:', e)
-    // Promise nicht „verbrennen“ — beim nächsten Request erneut versuchen.
+    console.error('[LAEMU] DB-Initialisierung fehlgeschlagen:', e)
+    // Promise nicht „verbrennen“ — beim nächsten Aufruf erneut versuchen.
     readyPromise = null
     throw e
   }
